@@ -118,7 +118,7 @@ CORS_ALLOWS_CREDENTIALS = True
 
 JWT: el frontend envía credenciales al backend (usuario y contraseña), si estos datos son correctos el backend devuelve dos tokens, el access token y el refresh token. Las siguiente llamadas desde el frontend, donde se envía el access token, va a poder acceder a endpoints que no podría de no estar autenticado. Después de un tiempo determinado (que definimos en 30 minutos) el access token deja de ser válido, en ese momento el frontend puede enviar el refresh token para volver a autenticarse y obtener un nuevo access token para seguir trabajando.
 
-### Registration view
+### User model
 
 ORM Object Relational Mapping: un ORM se encarga mapear los objetos de python en el código que se necesita para modificar, en la base de datos, las tablas a las que los mismos objetos hacen referencia. La comunicación desde el frontend es mediante JSON, para trabajar esos datos que llegan utilizamos en python los serializers, que traducen esos JSON en datos que puede manejar python a la vez que envían esos datos trabajados como JSON hacia el frontend.
 
@@ -145,6 +145,8 @@ class UserSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(**validate_data)
         return user
 ```
+
+### Registration view
 
 En `api` editamos el archivo `views.py`. Creamos una view, es decir, un endpoint al que va a llamar el frontend cuando quieran, en este caso, crear un nuevo usuario
 
@@ -194,4 +196,28 @@ Creamos o actualizamos la base de datos con el modelo de usuario que configuramo
 python manage.py makemigrations
 python manage.py migrate
 python manage.py runserver
+```
+
+## Custom model
+
+En `api` editamos el archivo `models.py`. Agregamos un modelo para las notas y establecemos una relación de muchos a uno entre user y las notas que puede tener.
+
+```py3
+from django.db import models
+from django.contrib.auth.models import User
+
+# creamos un nuevo modelo llamado Note, que hereda de models.Model. Mediante la ORM se va a crear una tabla en la base de datos para este modelo
+class Note(models.Model):
+    # campos de la base de datos con su tipo
+    title = models.CharField(max_length=100)
+    content = models.TextField()
+    # carga la fecha y hora del momento en que se crea la nota
+    created_at = models.DateTimeField(auto_now_add=True)
+    # establece la relación de la tabla de usuarios con la tabla de notas. on_delete=models.CASCADE indica que, si se elimina el usuario se eliminan todas las notas que creó
+    # en el modelo de User, si vamos al atributo User.notes vamos a ver todas las notas que ese User creó
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notes')
+
+    # redefinimos el método srt para que devuelva el título de la nota
+    def __str__(self):
+        return self.title
 ```
