@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=D:\DesarrolloApp\01_fullstack\django_react_app_base\env
+set VIRTUAL_ENV=C:\Miguel\DesarrolloApp\django_react_app_base\env
 
 if not defined PROMPT set PROMPT=$P$G
 
