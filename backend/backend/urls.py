@@ -15,6 +15,8 @@ urlpatterns = [
     # path para hacer un refresh del token
     path("api/token/refresh/", TokenRefreshView.as_view(), name="refresh"),
     # todas los path a los que va a poder ingresar el usuario una vez autenticado
-    path("api-auth/", include("rest_framework.urls"))
+    path("api-auth/", include("rest_framework.urls")),
+    # traemos las urls de la app api
+    path('api/', include('api.urls'))
 
 ]

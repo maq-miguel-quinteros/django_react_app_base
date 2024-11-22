@@ -200,6 +200,8 @@ python manage.py runserver
 
 ## Custom model
 
+### Model
+
 En `api` editamos el archivo `models.py`. Agregamos un modelo para las notas y establecemos una relación de muchos a uno entre user y las notas que puede tener.
 
 ```py3
@@ -220,4 +222,98 @@ class Note(models.Model):
     # redefinimos el método srt para que devuelva el título de la nota
     def __str__(self):
         return self.title
+```
+
+### Serializer
+
+En `api` editamos el archivo `serializers.py` y agregamos el serializer para el modelo que creamos
+
+```py3
+from django.contrib.auth.models import User
+from rest_framework import serializers
+# importamos el custom model
+from .models import Note
+
+# otros serializer
+
+class NoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Note
+        fields = ['id', 'title', 'content', 'created_at', 'author']
+        # podemos traer el usuario desde este serializer pero no podemos editarlo
+        extra_kwargs = {'author': {'read_only': True}}
+```
+
+### Views
+
+En `api` editamos el archivo `views.py`. Creamos una view para crear y listar notas y una view para eliminar notas.
+
+```py3
+from django.shortcuts import render
+from django.contrib.auth.models import User
+from rest_framework import generics
+from .serializers import UserSerializer, NoteSerializer
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from .models import Note
+
+# otras views
+
+# utilizamos ListCreateAPIView ya que esta view va a poder crear una nueva nota o listar las notas de un usuario
+class NoteListCreate(generics.ListCreateAPIView):
+    serializer_class = NoteSerializer
+    # esta view solo va a devolver datos si el pedido desde el front envía un token access valido de JWT
+    permission_classes = [IsAuthenticated]
+
+    # sobrescribimos el método get_queryset que se encarga de dar valor al atributo queryset
+    def get_queryset(self):
+        # traemos el usuario que está autenticado, el usuario actual y lo guardamos en user
+        user = self.request.user
+        # traemos todas las notas de ese user en particular. Para traer todas las notas de todos los usuarios utilizamos Note.objects.All()
+        return Note.objects.filter(author=user)
+    
+    # sobrescribimos el método perform_create. En caso de no hacerlo esté método utiliza queryset, serializer_class y permission_classes para crear nuevas notas de forma automática
+    def perform_create(self, serializer):
+        if serializer.is_valid():
+            # si los datos son validos se guarda la nota con el campo usuario igual user, es decir, el usuario autenticado
+            serializer.save(author=self.request.user)
+        else:
+            print(serializer.errors)
+
+# DestroyAPIView es una view que se encarga de borrar los elementos de la base de datos según el modelo que le pasamos
+class NoteDelete(generics.DestroyAPIView):
+    serializer_class = NoteSerializer
+    permission_classes = [IsAuthenticated]
+
+    # indicamos mediante un método el queryset
+    def get_queryset(self):
+        user = self.request.user
+        return Note.objects.filter(author=user)
+```
+
+### Urls
+
+En `api` creamos un nuevo archivo `urls.py`
+
+```py3
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    # para crear y listar las notas
+    path('notes/', views.NoteListCreate.as_view(), name='note-list'),
+    # para eliminar una nota
+    path('notes/delete/<int:pk>', views.NoteDelete.as_view(), name='delete-note'),
+]
+```
+
+En `backend` editamos el archivo `urls.py`
+
+```py3
+# otros import
+
+urlpatterns = [
+    # otros path
+    # traemos las urls de la app api
+    path('api/', include('api.urls')),
+]
 ```
