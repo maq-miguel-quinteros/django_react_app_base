@@ -335,6 +335,7 @@ npm create vite@latest
 Ingresamos en la carpeta `frontend` e instalamos las siguientes dependencias
 
 ```shellscript
+npm install
 npm install axios react-router-dom jwt-decode
 ```
 
