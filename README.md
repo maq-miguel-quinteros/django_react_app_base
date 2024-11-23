@@ -304,7 +304,7 @@ urlpatterns = [
     # para crear y listar las notas
     path('notes/', views.NoteListCreate.as_view(), name='note-list'),
     # para eliminar una nota
-    path('notes/delete/<int:pk>', views.NoteDelete.as_view(), name='delete-note'),
+    path('notes/delete/<int:pk>/', views.NoteDelete.as_view(), name='delete-note'),
 ]
 ```
 
@@ -332,7 +332,7 @@ Creamos un nuevo proyecto de `react` con `vite`. Ponemos de nombre `frontend` al
 npm create vite@latest
 ```
 
-Ingresamos en la carpeta `frontend` e instalamos las siguientes dependencias
+Ingresamos en la carpeta `frontend` e instalamos las siguientes dependencias. Instalamos también tailwindcss desde el siguiente [link](https://tailwindcss.com/docs/guides/vite)
 
 ```shellscript
 npm install
@@ -464,4 +464,394 @@ export default function ProtectedRoute({children}) {
 }
 ```
 
-## Navigation & pages
+## Navigation, register & login pages
+
+### Navigation
+
+Creamos la carpeta `pages` y dentro creamos 4 componentes `Home`, `Login`, `NotFound` y `Register`. Editamos el componente `App.jsx`
+
+```javascriptreact
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import Home from './pages/Home'
+import Login from './pages/Login'
+import NotFound from './pages/NotFound'
+import Register from './pages/Register'
+import ProtectedRoute from './components/ProtectedRoute'
+
+// si hacemos logout limpiamos del local storage los token y redireccionamos a login
+function Logout() {
+	localStorage.clear()
+	return <Navigate to='/login/' />
+}
+
+// cuando hacemos el registro de un nuevo usuario necesitamos borrar el local storage para que no queden token de un usuario anterior
+function RegisterAndLogout() {
+	localStorage.clear()
+	return <Register />
+}
+
+function App() {
+
+	return (
+		<BrowserRouter>
+			<Routes>
+				{/* para el path / se va a renderizar ProtectedRoute, si se cumplen las condiciones de ese elemento muestra su children que en el ejemplo es Home, sino hace lo que indica la lógica de ese elemento, que es ir a login directamente */}
+				<Route
+					path='/'
+					element={
+						<ProtectedRoute>
+							<Home />
+						</ProtectedRoute>
+					}
+				/>
+				{/* rutas que no necesitan la validación de ProtectedRoute */}
+				<Route path='/login' element={<Login />} />
+				<Route path='/logout' element={<Logout />} />
+				<Route path='/register' element={<RegisterAndLogout />} />
+				<Route path='\*' element={<NotFound />} />
+			</Routes>
+		</BrowserRouter>
+	)
+}
+
+export default App
+```
+
+### 404 NotFound
+
+En `pages` editamos el componente `NotFound`
+
+```javascriptreact
+
+export default function NotFound() {
+    return (
+        <div>
+            <h1>404 No Found</h1>
+            <p>La página a la que trata de ingresar no existe o no tiene los permisos necesarios para visitarla</p>
+        </div>
+    )
+}
+```
+
+### Register & login form component
+
+En `components` creamos un componente llamado `Form`. Va a ser un formulario genérico que vamos a usar para hacer el registro del usuario o para el login del usuario, ya que ambos, en este caso, utilizan los mismos datos.
+
+```javascriptreact
+/* eslint-disable react/prop-types */
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../api";
+import { ACCESS_TOKEN, REFRESH_TOKEN } from "../constants";
+
+export default function Form({ route, method }) {
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+
+    const name = method === "login" ? "Login" : "Register";
+
+    const handleSubmit = async (e) => {
+        setLoading(true);
+        e.preventDefault();
+
+        try {
+            // hacemos un llamado a la api con la route que mandan al componente cuando lo llaman. Si la respuesta es correcta, es decir, si el try no da error, pueden ser dos los caminos
+            const response = await api.post(route, { username, password });
+            // si la route era login guardamos los token en el local storage
+            if (method === "login") {
+                localStorage.setItem(ACCESS_TOKEN, response.data.access);
+                localStorage.setItem(REFRESH_TOKEN, response.data.refresh);
+                navigate("/");
+                // si la ruta era register no tenemos nada mas que hacer que redireccionar a login para que el usuario ingrese con el username recién creado
+            } else {
+                navigate("/login");
+            }
+        } catch (error) {
+            alert(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="max-w-sm mx-auto">
+            <h1 className="text-base/7 font-semibold text-gray-900">{name}</h1>
+            <div className="mb-5">
+                <label
+                    htmlFor="username"
+                    className="block mb-2 text-sm font-medium text-gray-900"
+                >
+                    Your username
+                </label>
+                <input
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    type="text"
+                    id="username"
+                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                    placeholder="Username"
+                    required
+                />
+            </div>
+            <div className="mb-5">
+                <label
+                    htmlFor="password"
+                    className="block mb-2 text-sm font-medium text-gray-900"
+                >
+                    Your password
+                </label>
+                <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    id="password"
+                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                    required
+                />
+            </div>
+            <button
+                type="submit"
+                className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+            >
+                {name}
+            </button>
+        </form>
+    );
+}
+
+```
+
+En `pages` editamos el componente `Register` y `Login`. Agregamos el componente `Form` con sus parámetros según el caso
+
+```javascriptreact
+import Form from "../components/Form"
+
+export default function Register() {
+    return <Form route='/api/user/register/' method='register' />
+}
+```
+
+```javascriptreact
+import Form from "../components/Form"
+
+export default function Login() {    
+    return <Form route='/api/token/' method='login' />
+}
+```
+
+### Test registe & login
+
+Para poder probar el formulario y la respuesta de la base de datos tenemos que hacer `runserver` en el backend y configurar el archivo `.env` con la ruta que nos devuelve al levantar el servidor. Esa ruta va a tomar `axios` para configurar `api` y es a la que vamos a hacer las consultas.
+
+```ini
+VITE_API_URL='http://127.0.0.1:8000' 
+```
+
+## Home page 
+
+### Loading component
+
+En `components` creamos un componente para mostrar como `Loading`, si el alta de una nota demora, y le damos estilos. Para este componente vamos a crear una carpeta llamada `styles` en `src` y dentro un archivo llamado `LoadingIndicator.css`
+
+```javascriptreact
+import "../styles/LoadingIndicator.css"
+
+export default function LoadingIndicator() {
+    return (
+        <div className="loading-container">
+        <div className="loader"></div>
+    </div>
+    )
+}
+```
+
+`LoadingIndicator.css`
+
+```css
+.loader-container {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.loader {
+	border: 5px solid #f3f3f3;
+	/* Light grey */
+	border-top: 5px solid #3498db;
+	/* Blue */
+	border-radius: 50%;
+	width: 50px;
+	height: 50px;
+	animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+	0% {
+		transform: rotate(0deg);
+	}
+
+	100% {
+		transform: rotate(360deg);
+	}
+}
+```
+
+### Note component
+
+En `components` creamos el componente `Note`. Mediante este vamos a mostrar la lista de notas en `Home`. Le damos estilos desde un css
+
+```javascriptreact
+/* eslint-disable react/prop-types */
+import "../styles/Note.css"
+
+export default function Note({note, onDelete}) {
+
+    // damos formato a la fecha que viene en created_at
+    const formattedDate = new Date(note.created_at).toLocaleDateString("en-US")
+
+    return (
+        <div className="note-container">
+            <p className="note-title">{note.title}</p>
+            <p className="note-content">{note.content}</p>
+            <p className="note-date">{formattedDate}</p>
+            <button className="delete-button" onClick={() => onDelete(note.id)}>
+                Delete
+            </button>
+        </div>
+    )
+}
+```
+
+`Note.css`
+
+```css
+.note-container {
+	padding: 10px;
+	margin: 20px 0;
+	border: 1px solid #ccc;
+	border-radius: 5px;
+}
+
+.note-title {
+	color: #333;
+}
+
+.note-content {
+	color: #666;
+}
+
+.note-date {
+	color: #999;
+	font-size: 0.8rem;
+}
+
+.delete-button {
+	background-color: #f44336;
+	/* Red */
+	color: white;
+	border: none;
+	padding: 10px 20px;
+	border-radius: 5px;
+	cursor: pointer;
+	transition: background-color 0.3s;
+}
+
+.delete-button:hover {
+	background-color: #d32f2f;
+	/* Darker red */
+}
+```
+
+### Home component
+
+En `pages` editamos el component `Home`
+
+```javascriptreact
+import {useState, useEffect} from 'react'
+import Note from '../components/Note'
+import api from '../api'
+
+export default function Home() {
+    const [notes, setNotes] = useState([])
+    const [title, setTitle] = useState('')
+    const [content, setContent] = useState('')
+    
+    const getNotes = () => {
+        api.get('/api/notes/')
+            .then((response) => response.data)
+            .then((data) => {setNotes(data); console.log(data)})
+            .catch((error) => alert(error))
+    }
+
+    const deleteNote = (id) => {
+        api.delete(`/api/notes/delete/${id}/`)
+            .then((res) => {
+                // 204 es respuesta entregada con exito
+                if (res.status === 204) alert('Note deleted!')
+                else alert('Fail to delete note')
+                getNotes()
+            })
+            .catch((error) => alert(error))
+        
+    }
+
+    const createNote = (e) => {
+        e.preventDefault()
+        api.post('/api/notes/', {title, content})
+            .then((res) => {
+                // 201 creación correcta
+                if(res.status === 201) alert('Note created')
+                else alert('Fail to make note')
+                // después de crear la nota llamamos a getNotes para traer todas las notas
+                getNotes()
+            })
+            .catch((error) => alert(error))        
+    }
+
+    useEffect(()=> {
+        getNotes()
+    }, [])
+
+    return (
+        <div>
+            <div className="max-w-sm mx-auto">
+                <h2 className="text-base/7 font-semibold text-gray-900">Notes</h2>
+                {notes.map((note) => (
+                    <Note note={note} onDelete={deleteNote} key={note.id} />
+                ))}
+            </div>
+            
+            <form onSubmit={createNote} className="max-w-sm mx-auto">
+            <h2 className="text-base/7 font-semibold text-gray-900">Create a Note</h2>
+                <label htmlFor="title" className="block mb-2 text-sm font-medium text-gray-900">Title:</label>
+                <br />
+                <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    required
+                    onChange={(e) => setTitle(e.target.value)}
+                    value={title}
+                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                />
+                <label htmlFor="content"  className="block mb-2 text-sm font-medium text-gray-900">Content:</label>
+                <br />
+                <textarea
+                    id="content"
+                    name="content"
+                    required
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                ></textarea>
+                <br />
+                <input type="submit" value="Submit" className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center"></input>
+            </form>
+        </div>
+    )
+}
+```
+
+# Deploy
