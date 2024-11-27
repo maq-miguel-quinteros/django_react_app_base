@@ -352,7 +352,7 @@ export const REFRESH_TOKEN = 'refresh';
 
 En `frontend` creamos el archivo `.env`. La variable que configuramos aquí tiene que empezar con VITE
 
-```tex
+```plaintext
 VITE_API_URL='http://localhost:8000'
 ```
 
@@ -379,7 +379,7 @@ api.interceptors.request.use(
         }
         return config
     },
-    // si el request falla infomamos el error
+    // si el request falla informamos el error
     (error) => {
         return Promise.reject(error)
     }
@@ -645,7 +645,7 @@ export default function Login() {
 
 Para poder probar el formulario y la respuesta de la base de datos tenemos que hacer `runserver` en el backend y configurar el archivo `.env` con la ruta que nos devuelve al levantar el servidor. Esa ruta va a tomar `axios` para configurar `api` y es a la que vamos a hacer las consultas.
 
-```ini
+```plaintext
 VITE_API_URL='http://127.0.0.1:8000' 
 ```
 
